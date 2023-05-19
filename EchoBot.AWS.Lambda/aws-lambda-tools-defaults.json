@@ -1,0 +1,11 @@
+{
+  "profile": "",
+  "region": "",
+  "configuration": "Release",
+  "function-architecture": "x86_64",
+  "function-runtime": "dotnet6",
+  "function-memory-size": 256,
+  "function-timeout": 30,
+  "function-handler": "EchoBot.AWS.Lambda::EchoBot.AWS.Lambda.RequestHandler::HandleRequest",
+  "function-name": "Echo"
+}

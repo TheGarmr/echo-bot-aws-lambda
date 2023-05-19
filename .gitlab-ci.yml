@@ -1,0 +1,57 @@
+variables:
+  AWS_ACCESS_KEY_ID: ""
+  AWS_DEFAULT_REGION: ""
+  AWS_SECRET_ACCESS_KEY: ""
+  BOT_TOKEN: ""
+  BUILD_PATH: "$CI_PROJECT_DIR/$PROJECT_NAME/bin/Release/net6.0/$PROJECT_NAME.zip"
+  FUNCTION_NAME: "EchoBot_Function"
+  FUNCTION_HANDLER: "EchoBot.AWS.Lambda::EchoBot.AWS.Lambda.RequestHandler::HandleRequest"
+  PROJECT_NAME: "EchoBot.AWS.Lambda"
+  TOKEN_ENVIRONMENT_NAME: "BOT_TOKEN"
+  API_GATEWAY_STAGE_ID: ""
+  REGION: ""
+  STAGE_NAME: ""
+  WEBHOOK_URL: "https://$API_GATEWAY_STAGE_ID.execute-api.$REGION.amazonaws.com/$STAGE_NAME"
+
+stages:
+- build
+- deploy
+- set_webhook
+
+Build:
+  stage: build
+  image: mcr.microsoft.com/dotnet/sdk:6.0-alpine
+  before_script:
+  - dotnet tool install -g Amazon.Lambda.Tools
+  - export PATH="$PATH:/root/.dotnet/tools"
+  - apk update && apk add --no-cache zip
+  script:
+  - echo "Building $PROJECT_NAME..."
+  - dotnet lambda package -pl $PROJECT_NAME -c Release
+  artifacts:
+    expire_in: 1 day
+    name: $FUNCTION_NAME
+    paths:
+    - $BUILD_PATH
+
+Deploy:
+  stage: deploy
+  image: amazon/lambda-build-node10.x
+  only:
+  - main
+  when: on_success
+  script:
+  - aws lambda update-function-configuration --function-name $FUNCTION_NAME --handler $FUNCTION_HANDLER --environment "Variables={$TOKEN_ENVIRONMENT_NAME=$BOT_TOKEN}"
+  - aws lambda update-function-code --function-name $FUNCTION_NAME --zip-file fileb://$BUILD_PATH
+  dependencies:
+  - Build
+
+Set WebHook:
+  stage: set_webhook
+  only:
+  - main
+  when: on_success
+  before_script:
+  - apk update && apk add --no-cache curl
+  script:
+  - curl --location "https://api.telegram.org/bot$BOT_TOKEN/setWebhook?url=$WEBHOOK_URL"
